@@ -13,6 +13,13 @@ input,select,button{font-family:inherit}
   font-weight:800;font-size:13px;z-index:9999;white-space:nowrap;box-shadow:0 4px 20px #0008;
   opacity:0;transition:opacity .3s;pointer-events:none}
 #toast.show{opacity:1}
+.modal-backdrop{position:fixed;inset:0;background:#020617cc;display:none;align-items:center;justify-content:center;z-index:9998;padding:18px}
+.modal-backdrop.show{display:flex}
+.confirm-box{background:#1e293b;border:1px solid #475569;border-radius:14px;padding:18px;width:min(360px,100%);box-shadow:0 18px 60px #0009;text-align:center}
+.confirm-title{font-size:18px;font-weight:900;color:#f8fafc;margin-bottom:8px}
+.confirm-text{font-size:13px;color:#cbd5e1;line-height:1.45;margin-bottom:14px}
+.confirm-actions{display:flex;gap:10px}
+.confirm-actions .btn{margin:0;padding:10px 0;font-size:13px}
 .card{background:#1e293b;border:1px solid #334155;border-radius:16px;padding:18px}
 #game-main{display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap;justify-content:center;width:100%;max-width:940px}
 #board-wrap{overflow:visible;max-width:100%;display:flex;justify-content:center;-webkit-overflow-scrolling:touch}
@@ -29,7 +36,7 @@ input,select,button{font-family:inherit}
   #game-main{display:grid;grid-template-columns:1fr;gap:8px;justify-items:center;max-width:100%}
   #board{--cell-size:calc((100vw - 34px) / 14);gap:1px;padding:5px;border-radius:10px}
   .cell{font-size:clamp(10px,2.7vw,14px);border-radius:4px}
-  #wordlist{width:calc(100vw - 12px);min-width:0;align-self:auto;padding:8px}
+  #wordlist{width:calc(100vw - 12px);min-width:0;align-self:auto;padding:8px;max-height:none}
   #witems{display:grid;grid-template-columns:1fr 1fr;gap:4px}
   .witem{margin-bottom:0;padding:5px 7px;min-width:0;align-items:flex-start;gap:6px}
   .wn{font-size:10px;letter-spacing:0;white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere;line-height:1.15}
@@ -49,13 +56,13 @@ input,select,button{font-family:inherit}
 .p-chip{flex-shrink:0;background:#1e293b;border:2px solid transparent;border-radius:10px;padding:5px 10px;display:flex;align-items:center;gap:5px}
 .p-chip.me{border-color:#3b82f6}
 .dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
-#wordlist{background:#1e293b;border:1px solid #334155;border-radius:14px;padding:12px;min-width:148px;width:152px;flex-shrink:0;align-self:flex-start}
+#wordlist{background:#1e293b;border:1px solid #334155;border-radius:14px;padding:12px;min-width:210px;width:220px;flex-shrink:0;align-self:flex-start}
 #wordlist h4{color:#64748b;font-size:10px;text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid #334155;padding-bottom:7px;margin-bottom:8px}
 .witem{display:flex;align-items:center;justify-content:space-between;border-radius:6px;padding:5px 9px;margin-bottom:4px}
 .witem.pending{background:#0f172a}
 .witem.mine{background:#1e3a5f}
 .witem.done{background:#064e3b}
-.wn{font-size:11px;font-weight:700;letter-spacing:.5px;color:#94a3b8}
+.wn{font-size:11px;font-weight:700;letter-spacing:.2px;color:#94a3b8;white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere;line-height:1.15}
 .witem.mine .wn{color:#93c5fd}
 .witem.done .wn{color:#6ee7b7;text-decoration:line-through}
 .wfd{width:8px;height:8px;border-radius:50%;flex-shrink:0}
@@ -104,7 +111,7 @@ select.cfg{width:100%;background:#0f172a;color:#f1f5f9;border:1px solid #475569;
   #game-main{display:grid;grid-template-columns:1fr;gap:8px;justify-items:center;max-width:100%}
   #board{--cell-size:calc((100vw - 34px) / 14);gap:1px;padding:5px;border-radius:10px}
   .cell{font-size:clamp(10px,2.7vw,14px);border-radius:4px}
-  #wordlist{width:calc(100vw - 12px);min-width:0;align-self:auto;padding:8px}
+  #wordlist{width:calc(100vw - 12px);min-width:0;align-self:auto;padding:8px;max-height:none}
   #witems{display:grid;grid-template-columns:1fr 1fr;gap:4px}
   .witem{margin-bottom:0;padding:5px 7px;min-width:0;align-items:flex-start;gap:6px}
   .wn{font-size:10px;letter-spacing:0;white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere;line-height:1.15}
@@ -118,6 +125,16 @@ select.cfg{width:100%;background:#0f172a;color:#f1f5f9;border:1px solid #475569;
 </head>
 <body translate="no" class="notranslate">
 <div id="toast"></div>
+<div class="modal-backdrop" id="leave-modal">
+  <div class="confirm-box">
+    <div class="confirm-title">¿Abandonar partida?</div>
+    <div class="confirm-text">Tu salida quedará registrada. Si solo queda un jugador activo, será declarado vencedor.</div>
+    <div class="confirm-actions">
+      <button class="btn btn-ghost" onclick="cancelLeaveGame()">Seguir jugando</button>
+      <button class="btn btn-red" onclick="confirmLeaveGame()">Abandonar</button>
+    </div>
+  </div>
+</div>
 
 <!-- ══ LOGIN ══ -->
 <div id="screen-login" class="screen active" style="max-width:420px;margin:0 auto;padding-top:48px;text-align:center">
@@ -189,6 +206,10 @@ select.cfg{width:100%;background:#0f172a;color:#f1f5f9;border:1px solid #475569;
           <option value="COCINA">🍽️ Cocina</option>
           <option value="ROPA">👗 Ropa</option>
           <option value="TRANSPORTE">🚀 Transporte</option>
+          <option value="FLORES">🌸 Flores</option>
+          <option value="NOMBRES_MASCULINOS">👦 Nombres masculinos</option>
+          <option value="NOMBRES_FEMENINOS">👧 Nombres femeninos</option>
+          <option value="PELICULAS">🎬 Películas</option>
         </select>
       </div>
       <div>
@@ -290,6 +311,7 @@ let selCells = [], pressing = false, selDir = null;
 let timerIv = null, interIv = null;
 let audioEnabled = true, audioCtx = null, musicGain = null, musicIv = null, suspenseIv = null;
 let lastSuspense = false;
+let leaveAfterConfirm = false;
 const CIRC = 131.9;
 const PUBLIC_SHARE_URL = '';
 
@@ -413,8 +435,21 @@ function stopMusic(resetMode = true) {
 function toggleAudio() {
   audioEnabled = !audioEnabled;
   document.getElementById('audio-btn').textContent = audioEnabled ? 'Audio: sí' : 'Audio: no';
+  if (!audioEnabled && 'speechSynthesis' in window) window.speechSynthesis.cancel();
   if (!audioEnabled) stopMusic();
   else if (G?.phase === 'PLAYING') startMusic(false);
+}
+
+function speakFoundWord(word, name, by) {
+  if (!audioEnabled || !('speechSynthesis' in window)) return;
+  const msg = by === myId ? `Encontraste ${word}` : `${name} encontró ${word}`;
+  const u = new SpeechSynthesisUtterance(msg);
+  u.lang = 'es-MX';
+  u.rate = 0.95;
+  u.pitch = 1.02;
+  u.volume = 0.9;
+  window.speechSynthesis.cancel();
+  window.speechSynthesis.speak(u);
 }
 
 // ── LOGIN ─────────────────────────────────────────────────────────────────────
@@ -461,13 +496,31 @@ function doReset() {
 }
 
 function leaveGame() {
-  if (G && ['PLAYING','INTERMISSION'].includes(G.phase) && !confirm('¿Seguro que quieres abandonar la partida?\n\nTu salida quedará registrada y, si solo queda un jugador activo, será declarado vencedor.')) return;
+  if (G && ['PLAYING','INTERMISSION'].includes(G.phase) && !leaveAfterConfirm) {
+    const modal = document.getElementById('leave-modal');
+    if (modal) modal.classList.add('show');
+    return;
+  }
+  leaveAfterConfirm = false;
   hasJoined = false; pendingName = null; G = null; lastBoardSig = '';
   clearInterval(timerIv); clearInterval(interIv);
+  if ('speechSynthesis' in window) window.speechSynthesis.cancel();
   stopMusic();
   show('screen-login');
   socket.emit('leave', () => socket.disconnect());
   setTimeout(() => { if (socket.connected && !hasJoined) socket.disconnect(); }, 400);
+}
+
+function cancelLeaveGame() {
+  const modal = document.getElementById('leave-modal');
+  if (modal) modal.classList.remove('show');
+}
+
+function confirmLeaveGame() {
+  const modal = document.getElementById('leave-modal');
+  if (modal) modal.classList.remove('show');
+  leaveAfterConfirm = true;
+  leaveGame();
 }
 
 // ── SOCKET EVENTOS ────────────────────────────────────────────────────────────
@@ -516,6 +569,7 @@ socket.on('found', ({ word, by, name, pts, color }) => {
   if (!hasJoined) return;
   if (by === myId) toast(`¡Encontraste ${word}! +${pts}pts`, color, '#fff');
   else toast(`${name} encontró ${word} +${pts}pts`, color, '#fff');
+  speakFoundWord(word, name, by);
   // Colorear celdas con el color del primer descubridor
   if (G && G.wordCoords[word] && !G.foundWords.includes(word)) {
     G.wordCoords[word].forEach(({ r, c }) => {

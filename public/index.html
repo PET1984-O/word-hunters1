@@ -442,12 +442,17 @@ function toggleAudio() {
 
 function speakFoundWord(word, name) {
   if (!audioEnabled || !('speechSynthesis' in window)) return;
-  const msg = `${name} encontró ${word}`;
+  const voices = window.speechSynthesis.getVoices?.() || [];
+  const funVoice = voices.find(v => /es-|spanish|español/i.test(`${v.lang} ${v.name}`) && /female|mujer|paulina|monica|luciana|google/i.test(v.name))
+    || voices.find(v => /es-|spanish|español/i.test(`${v.lang} ${v.name}`))
+    || voices[0];
+  const msg = `¡Atención! ${name} encontró ${word}`;
   const u = new SpeechSynthesisUtterance(msg);
   u.lang = 'es-MX';
-  u.rate = 0.95;
-  u.pitch = 1.02;
-  u.volume = 0.9;
+  if (funVoice) u.voice = funVoice;
+  u.rate = 1.12;
+  u.pitch = 1.35;
+  u.volume = 1;
   window.speechSynthesis.cancel();
   window.speechSynthesis.speak(u);
 }

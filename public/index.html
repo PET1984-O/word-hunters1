@@ -440,9 +440,9 @@ function toggleAudio() {
   else if (G?.phase === 'PLAYING') startMusic(false);
 }
 
-function speakFoundWord(word, name, by) {
+function speakFoundWord(word, name) {
   if (!audioEnabled || !('speechSynthesis' in window)) return;
-  const msg = by === myId ? `Encontraste ${word}` : `${name} encontró ${word}`;
+  const msg = `${name} encontró ${word}`;
   const u = new SpeechSynthesisUtterance(msg);
   u.lang = 'es-MX';
   u.rate = 0.95;

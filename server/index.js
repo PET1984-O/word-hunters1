@@ -407,8 +407,10 @@ io.on('connection', socket => {
   // ── WORD ──
   socket.on('word', ({ word, coords }) => {
     if (G.phase !== 'PLAYING' || !G.players[socket.id]) return;
-    const w = clean(word || '');
-    if (!w || !G.words.includes(w)) return;
+    const selected = clean(word || '');
+    const reversed = selected.split('').reverse().join('');
+    const w = G.words.includes(selected) ? selected : (G.words.includes(reversed) ? reversed : '');
+    if (!w) return;
     const p = G.players[socket.id];
     if (!p.myFoundWords) p.myFoundWords = [];
     if (p.myFoundWords.includes(w)) return;

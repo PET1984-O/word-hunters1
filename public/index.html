@@ -23,9 +23,9 @@ input,select,button{font-family:inherit}
 .card{background:#1e293b;border:1px solid #334155;border-radius:16px;padding:18px}
 #game-main{display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap;justify-content:center;width:100%;max-width:940px}
 #board-wrap{overflow:visible;max-width:100%;display:flex;justify-content:center;-webkit-overflow-scrolling:touch}
-#board{--cell-size:32px;display:inline-grid;gap:2px;padding:8px;background:#1e293b;border-radius:14px;border:1px solid #334155}
+#board{--cell-size:32px;--board-bg:#1e293b;--cell-bg:#334155;--cell-text:#cbd5e1;--board-border:#334155;display:inline-grid;gap:2px;padding:8px;background:var(--board-bg);border-radius:14px;border:1px solid var(--board-border)}
 .cell{width:var(--cell-size);height:var(--cell-size);min-width:var(--cell-size);min-height:var(--cell-size);display:flex;align-items:center;justify-content:center;
-  font-weight:900;font-size:14px;border-radius:5px;cursor:pointer;background:#334155;color:#94a3b8;
+  font-weight:900;font-size:14px;border-radius:5px;cursor:pointer;background:var(--cell-bg);color:var(--cell-text);
   transition:background .06s,transform .06s;user-select:none;-webkit-user-select:none;touch-action:none;overflow:hidden}
 .cell.sel{color:#fff;transform:scale(1.1);box-shadow:0 2px 10px #0006;z-index:2;position:relative}
 .cell.found{color:#fff}
@@ -210,6 +210,11 @@ select.cfg{width:100%;background:#0f172a;color:#f1f5f9;border:1px solid #475569;
           <option value="NOMBRES_MASCULINOS">👦 Nombres masculinos</option>
           <option value="NOMBRES_FEMENINOS">👧 Nombres femeninos</option>
           <option value="PELICULAS">🎬 Películas</option>
+          <option value="CARICATURAS_MEXICANAS">📺 Caricaturas mexicanas</option>
+          <option value="CANTANTES_FAMOSOS">🎤 Cantantes famosos</option>
+          <option value="CUERPO_HUMANO">🫀 Cuerpo humano</option>
+          <option value="NOVELAS_LITERARIAS">📚 Novelas literarias</option>
+          <option value="UNIVERSO">🪐 Universo</option>
         </select>
       </div>
       <div>
@@ -312,6 +317,7 @@ let timerIv = null, interIv = null;
 let audioEnabled = true, audioCtx = null, musicGain = null, musicIv = null, suspenseIv = null;
 let lastSuspense = false;
 let leaveAfterConfirm = false;
+let speechUnlocked = false, cachedVoices = [];
 const CIRC = 131.9;
 const PUBLIC_SHARE_URL = '';
 
@@ -348,6 +354,16 @@ function show(id) {
   document.getElementById(id).classList.add('active');
 }
 
+function applyBoardTheme() {
+  const el = document.getElementById('board');
+  if (!el) return;
+  const t = G?.config?.boardTheme || {};
+  el.style.setProperty('--board-bg', t.bg || '#1e293b');
+  el.style.setProperty('--cell-bg', t.cell || '#334155');
+  el.style.setProperty('--cell-text', t.text || '#cbd5e1');
+  el.style.setProperty('--board-border', t.border || '#334155');
+}
+
 function esc(v) {
   return String(v ?? '').replace(/[&<>"']/g, ch => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[ch]));
 }
@@ -377,13 +393,39 @@ function renderHistory(targetId) {
 }
 
 function initAudio() {
-  if (audioCtx || !audioEnabled) return;
+  if (audioCtx) {
+    if (audioCtx.state === 'suspended') audioCtx.resume?.();
+    return;
+  }
+  if (!audioEnabled) return;
   const AC = window.AudioContext || window.webkitAudioContext;
   if (!AC) return;
   audioCtx = new AC();
   musicGain = audioCtx.createGain();
   musicGain.gain.value = 0.045;
   musicGain.connect(audioCtx.destination);
+}
+
+function refreshVoices() {
+  if (!('speechSynthesis' in window)) return [];
+  cachedVoices = window.speechSynthesis.getVoices?.() || cachedVoices || [];
+  return cachedVoices;
+}
+
+if ('speechSynthesis' in window) {
+  refreshVoices();
+  window.speechSynthesis.onvoiceschanged = refreshVoices;
+}
+
+function unlockSpeech() {
+  if (speechUnlocked || !audioEnabled || !('speechSynthesis' in window)) return;
+  refreshVoices();
+  const u = new SpeechSynthesisUtterance(' ');
+  u.lang = 'es-MX';
+  u.volume = 0.01;
+  u.rate = 1;
+  window.speechSynthesis.speak(u);
+  speechUnlocked = true;
 }
 
 function playTone(freq, dur, gain = 0.06, type = 'sine') {
@@ -437,24 +479,57 @@ function toggleAudio() {
   document.getElementById('audio-btn').textContent = audioEnabled ? 'Audio: sí' : 'Audio: no';
   if (!audioEnabled && 'speechSynthesis' in window) window.speechSynthesis.cancel();
   if (!audioEnabled) stopMusic();
-  else if (G?.phase === 'PLAYING') startMusic(false);
+  else {
+    initAudio();
+    unlockSpeech();
+    if (G?.phase === 'PLAYING') startMusic(false);
+  }
 }
 
-function speakFoundWord(word, name) {
-  if (!audioEnabled || !('speechSynthesis' in window)) return;
-  const voices = window.speechSynthesis.getVoices?.() || [];
-  const funVoice = voices.find(v => /es-|spanish|español/i.test(`${v.lang} ${v.name}`) && /female|mujer|paulina|monica|luciana|google/i.test(v.name))
-    || voices.find(v => /es-|spanish|español/i.test(`${v.lang} ${v.name}`))
+function preferredSpanishVoice() {
+  const voices = refreshVoices();
+  return voices.find(v => /es[-_]?mx/i.test(v.lang) && /paulina|monica|mónica|google|samantha|sabina|marisol/i.test(v.name))
+    || voices.find(v => /es[-_]/i.test(v.lang) && /paulina|monica|mónica|google|samantha|sabina|marisol|premium|enhanced/i.test(v.name))
+    || voices.find(v => /es[-_]?mx/i.test(v.lang))
+    || voices.find(v => /^es/i.test(v.lang))
+    || voices.find(v => /spanish|español/i.test(`${v.lang} ${v.name}`))
     || voices[0];
-  const msg = `¡Atención! ${name} encontró ${word}`;
+}
+
+function speakableName(name) {
+  const raw = String(name || 'Jugador').trim();
+  const letters = {
+    A:'a', B:'be', C:'ce', D:'de', E:'e', F:'efe', G:'ge', H:'hache', I:'i', J:'jota',
+    K:'ka', L:'ele', M:'eme', N:'ene', O:'o', P:'pe', Q:'cu', R:'erre', S:'ese',
+    T:'te', U:'u', V:'uve', W:'doble u', X:'equis', Y:'ye', Z:'zeta'
+  };
+  const cleanName = raw.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/[^A-Z]/g, '');
+  if (cleanName.length > 1 && cleanName.length <= 4 && cleanName === raw.toUpperCase().replace(/[^A-Z]/g, '')) {
+    return cleanName.split('').map(ch => letters[ch] || ch.toLowerCase()).join(', ');
+  }
+  return raw.toLocaleLowerCase('es-MX').replace(/\b\p{L}/gu, ch => ch.toLocaleUpperCase('es-MX'));
+}
+
+function speakableWord(word) {
+  return String(word || '').toLocaleLowerCase('es-MX').replace(/\b\p{L}/gu, ch => ch.toLocaleUpperCase('es-MX'));
+}
+
+function speakFoundWord(word, name, retry = 0) {
+  if (!audioEnabled || !('speechSynthesis' in window)) return;
+  const funVoice = preferredSpanishVoice();
+  if (!funVoice && retry < 3) {
+    setTimeout(() => speakFoundWord(word, name, retry + 1), 250);
+    return;
+  }
+  const msg = `¡Atención! ${speakableName(name)} encontró ${speakableWord(word)}`;
   const u = new SpeechSynthesisUtterance(msg);
-  u.lang = 'es-MX';
+  u.lang = funVoice?.lang || 'es-MX';
   if (funVoice) u.voice = funVoice;
-  u.rate = 1.12;
-  u.pitch = 1.35;
+  u.rate = 1.03;
+  u.pitch = 1.2;
   u.volume = 1;
   window.speechSynthesis.cancel();
-  window.speechSynthesis.speak(u);
+  setTimeout(() => window.speechSynthesis.speak(u), 40);
 }
 
 // ── LOGIN ─────────────────────────────────────────────────────────────────────
@@ -462,6 +537,7 @@ function doLogin() {
   const n = document.getElementById('name-in').value.trim();
   if (!n) { toast('Escribe tu nombre primero'); return; }
   initAudio();
+  unlockSpeech();
   pendingName = n; setUrls();
   if (socket.connected) emitJoin(n);
   else { toast('Conectando...'); socket.connect(); }
@@ -574,7 +650,7 @@ socket.on('found', ({ word, by, name, pts, color }) => {
   if (!hasJoined) return;
   if (by === myId) toast(`¡Encontraste ${word}! +${pts}pts`, color, '#fff');
   else toast(`${name} encontró ${word} +${pts}pts`, color, '#fff');
-  speakFoundWord(word, name, by);
+  speakFoundWord(word, name);
   // Colorear celdas con el color del primer descubridor
   if (G && G.wordCoords[word] && !G.foundWords.includes(word)) {
     G.wordCoords[word].forEach(({ r, c }) => {
@@ -610,6 +686,7 @@ function renderLobby() {
 // ── RENDER GAME ───────────────────────────────────────────────────────────────
 function renderGame() {
   show('screen-game');
+  applyBoardTheme();
   const me = G.players[myId];
   const myW = me?.wordsFound || 0, total = G.words.length;
 
